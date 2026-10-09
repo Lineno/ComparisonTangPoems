@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 唐詩一較高下</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #F0F9FF; /* 淺藍色清新背景 */
+            background-image: radial-gradient(#BAE6FD 2px, transparent 2px);
+            background-size: 30px 30px;
+        }
+
+        /* 按鈕 3D 效果 */
+        .btn-3d {
+            transition: all 0.1s;
+            box-shadow: 0 6px 0px rgba(0,0,0,0.15);
+        }
+        .btn-3d:active:not(:disabled) {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0px rgba(0,0,0,0);
+        }
+        .btn-3d:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: translateY(6px);
+            box-shadow: 0 0px 0px rgba(0,0,0,0);
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.6; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+        .is-recording {
+            position: relative;
+        }
+        .is-recording::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background-color: #EF4444;
+            animation: pulse-ring 1.2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+            z-index: -1;
+        }
+
+        /* 成績單彈出動畫 */
+        @keyframes pop-up {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-popup {
+            animation: pop-up 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 隱藏捲軸 */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 sm:p-8 text-gray-800">
+
+    <main class="w-full max-w-5xl bg-white rounded-[2rem] shadow-2xl border-8 border-blue-300 overflow-hidden relative flex flex-col md:flex-row">
+        
+        <!-- 左側：唐詩選單與內容顯示區 -->
+        <div class="w-full md:w-1/2 p-6 sm:p-8 bg-blue-50 border-b-8 md:border-b-0 md:border-r-8 border-blue-200 flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl sm:text-3xl font-black text-blue-600 flex items-center gap-2">
+                    🏆 唐詩一較高下
+                </h1>
+                <!-- 外部連結按鈕 -->
+                <a href="https://lineno.github.io/ComparisonTangPoems/" target="_blank" rel="noopener noreferrer" class="bg-yellow-400 hover:bg-yellow-500 text-white rounded-full p-2 shadow-md transition-transform hover:scale-110 flex-shrink-0 cursor-pointer" title="前往獨立專案頁面">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </a>
+            </div>
+
+            <!-- 唐詩切換標籤 -->
+            <div class="flex gap-2 mb-6 overflow-x-auto pb-2" id="poem-tabs">
+                <!-- 標籤將由 JS 動態生成 -->
+            </div>
+
+            <!-- 詩詞顯示區 -->
+            <div class="bg-white p-6 rounded-3xl shadow-sm border-4 border-blue-100 text-center flex-grow flex flex-col justify-center relative">
+                <h2 id="poem-title" class="text-3xl font-black text-gray-800 mb-2 tracking-widest"></h2>
+                <h3 id="poem-author" class="text-lg font-bold text-gray-500 mb-6"></h3>
+                <div id="poem-content" class="text-2xl sm:text-3xl font-bold text-gray-700 leading-relaxed tracking-[0.2em] space-y-4">
+                    <!-- 詩詞內容 -->
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full md:w-1/2 p-6 sm:p-8 bg-white flex flex-col justify-between">
+            
+            <div class="flex-grow flex flex-col justify-center">
+                <!-- 波形顯示畫布 -->
+                <div class="w-full mb-6">
+                    <div class="flex justify-between items-center mb-2 px-2">
+                        <span class="font-bold text-blue-500">📊 聲音波形與評分區</span>
+                        <span id="recording-status" class="text-sm font-bold text-gray-400">尚未錄音</span>
+                    </div>
+                    <div class="w-full h-32 bg-blue-50 rounded-2xl border-4 border-blue-200 overflow-hidden relative shadow-inner">
+                        <canvas id="waveform" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+
+                <!-- 評分成績單 (預設隱藏) -->
+                <div id="score-board" class="hidden w-full bg-yellow-50 p-4 rounded-2xl border-4 border-yellow-300 animate-popup mb-6 shadow-sm">
+                    <h4 class="text-center font-black text-xl text-yellow-600 mb-3 border-b-2 border-yellow-200 pb-2">🎖️ 挑戰成績單 🎖️</h4>
+                    <div class="flex justify-between items-center mb-2 px-2">
+                        <span class="font-bold text-gray-600">🎯 發音正確性：</span>
+                        <span id="score-accuracy" class="text-xl font-black text-blue-500">0 分</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2 px-2">
+                        <span class="font-bold text-gray-600">🌊 朗讀流暢度：</span>
+                        <span id="score-fluency" class="text-xl font-black text-green-500">0 分</span>
+                    </div>
+                    <div class="bg-white rounded-xl p-3 mt-3 flex flex-col items-center border-2 border-yellow-200">
+                        <span class="font-bold text-gray-500 text-sm">綜合評分</span>
+                        <div class="flex items-baseline gap-1">
+                            <span id="score-total" class="text-5xl font-black text-red-500">0</span>
+                            <span class="text-xl font-bold text-red-400">分</span>
+                        </div>
+                        <span id="score-comment" class="text-base font-bold text-orange-500 mt-1"></span>
+                    </div>
+                    <div class="mt-3 text-xs text-gray-400 text-center bg-gray-50 p-2 rounded-lg break-words">
+                        系統聽到你說：<span id="recognized-text-display" class="text-gray-600 font-bold"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 互動步驟按鈕 -->
+            <div class="w-full flex justify-between gap-2 sm:gap-4 items-end mt-4">
+                <!-- 步驟 1: 聽示範 -->
+                <div class="flex flex-col items-center flex-1">
+                    <span class="text-xs sm:text-sm font-bold text-blue-500 mb-2 bg-blue-100 px-3 py-1 rounded-full shadow-sm">Step 1</span>
+                    <button id="btn-listen" class="btn-3d w-14 h-14 sm:w-16 sm:h-16 bg-blue-400 hover:bg-blue-500 text-white rounded-full flex items-center justify-center text-2xl sm:text-3xl border-4 border-blue-600 focus:outline-none">
+                        🔊
+                    </button>
+                    <span class="mt-2 font-bold text-gray-600 text-xs sm:text-sm">聽老師唸</span>
+                </div>
+
+                <!-- 步驟 2: 錄音挑戰 -->
+                <div class="flex flex-col items-center flex-1">
+                    <span class="text-xs sm:text-sm font-bold text-red-500 mb-2 bg-red-100 px-3 py-1 rounded-full shadow-sm">Step 2</span>
+                    <button id="btn-record" class="btn-3d w-16 h-16 sm:w-20 sm:h-20 bg-red-400 hover:bg-red-500 text-white rounded-full flex items-center justify-center text-3xl sm:text-4xl border-4 border-red-600 focus:outline-none transition-colors">
+                        🎤
+                    </button>
+                    <span id="record-label" class="mt-2 font-bold text-red-600 text-xs sm:text-sm">按住挑戰</span>
+                </div>
+
+                <!-- 步驟 3: 播放我的聲音 -->
+                <div class="flex flex-col items-center flex-1">
+                    <span class="text-xs sm:text-sm font-bold text-green-500 mb-2 bg-green-100 px-3 py-1 rounded-full shadow-sm">Step 3</span>
+                    <button id="btn-play" disabled class="btn-3d w-14 h-14 sm:w-16 sm:h-16 bg-green-400 hover:bg-green-500 text-white rounded-full flex items-center justify-center text-2xl sm:text-3xl border-4 border-green-600 focus:outline-none">
+                        ▶️
+                    </button>
+                    <span class="mt-2 font-bold text-gray-600 text-xs sm:text-sm">聽我的聲音</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 唐詩資料庫
+        const poemsData = [
+            {
+                title: "春曉",
+                author: "唐 · 孟浩然",
+                content: ["春眠不覺曉，", "處處聞啼鳥。", "夜來風雨聲，", "花落知多少。"]
+            },
+            {
+                title: "靜夜思",
+                author: "唐 · 李白",
+                content: ["床前明月光，", "疑是地上霜。", "舉頭望明月，", "低頭思故鄉。"]
+            },
+            {
+                title: "登鸛雀樓",
+                author: "唐 · 王之渙",
+                content: ["白日依山盡，", "黃河入海流。", "欲窮千里目，", "更上一層樓。"]
+            }
+        ];
+
+        let currentPoemIndex = 0;
+        let isRecording = false;
+        
+        // 錄音與播放相關
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioUrl = null;
+        let recordedAudioElement = new Audio();
+        
+        // Web Audio API (視覺化與流暢度監測)
+        let audioCtx;
+        let analyser;
+        let micSource;
+        let playSource;
+        let animationId;
+        
+        // 評分系統相關變數
+        let recognition;
+        let finalTranscript = "";
+        let silenceFrames = 0;
+        let longPauseCount = 0;
+        const SILENCE_THRESHOLD = 15; // 音量低於此數值視為靜音 (0-255)
+        const PAUSE_FRAME_LIMIT = 50; // 連續多少個 Frame 靜音視為一次「停頓」(約 0.8秒)
+
+        // DOM 元素
+        const elPoemTabs = document.getElementById('poem-tabs');
+        const elPoemTitle = document.getElementById('poem-title');
+        const elPoemAuthor = document.getElementById('poem-author');
+        const elPoemContent = document.getElementById('poem-content');
+        
+        const btnListen = document.getElementById('btn-listen');
+        const btnRecord = document.getElementById('btn-record');
+        const btnPlay = document.getElementById('btn-play');
+        const recordLabel = document.getElementById('record-label');
+        const statusLabel = document.getElementById('recording-status');
+        
+        const canvas = document.getElementById('waveform');
+        const canvasCtx = canvas.getContext('2d');
+        
+        const scoreBoard = document.getElementById('score-board');
+
+        function initUI() {
+            poemsData.forEach((poem, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = poem.title;
+                btn.className = `px-4 py-2 rounded-full font-bold whitespace-nowrap transition-colors border-2 ${index === currentPoemIndex ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-blue-500 border-blue-200 hover:bg-blue-50'}`;
+                btn.onclick = () => loadPoem(index);
+                elPoemTabs.appendChild(btn);
+            });
+            loadPoem(0);
+            drawBlankWaveform();
+            setupSpeechRecognition();
+        }
+
+        // 初始化語音辨識
+        function setupSpeechRecognition() {
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (window.SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true; // 持續辨識，不要停頓就中斷
+                recognition.interimResults = true;
+                recognition.lang = 'zh-TW';
+                
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    finalTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    // 為了評分，將暫存與最終結果合併計算
+                    finalTranscript += interimTranscript;
+                };
+                
+                recognition.onerror = (event) => {
+                    console.error("語音辨識錯誤:", event.error);
+                };
+            } else {
+                console.warn("此瀏覽器不支援語音辨識評分功能");
+            }
+        }
+
+        function loadPoem(index) {
+            currentPoemIndex = index;
+            const poem = poemsData[index];
+            
+            Array.from(elPoemTabs.children).forEach((btn, i) => {
+                btn.className = i === index 
+                    ? 'px-4 py-2 rounded-full font-bold whitespace-nowrap transition-colors border-2 bg-blue-500 text-white border-blue-600' 
+                    : 'px-4 py-2 rounded-full font-bold whitespace-nowrap transition-colors border-2 bg-white text-blue-500 border-blue-200 hover:bg-blue-50';
+            });
+
+            elPoemTitle.textContent = poem.title;
+            elPoemAuthor.textContent = poem.author;
+            elPoemContent.innerHTML = poem.content.map(line => `<p>${line}</p>`).join('');
+
+            resetAudioState();
+        }
+
+        function resetAudioState() {
+            window.speechSynthesis.cancel();
+            if (recordedAudioElement) recordedAudioElement.pause();
+            audioUrl = null;
+            btnPlay.disabled = true;
+            statusLabel.textContent = "尚未錄音";
+            statusLabel.className = "text-sm font-bold text-gray-400";
+            scoreBoard.classList.add('hidden');
+            cancelAnimationFrame(animationId);
+            drawBlankWaveform();
+        }
+
+        btnListen.addEventListener('click', () => {
+            const synth = window.speechSynthesis;
+            synth.cancel();
+            if (recordedAudioElement) recordedAudioElement.pause();
+
+            const poem = poemsData[currentPoemIndex];
+            const textToRead = `${poem.title}。${poem.author}。${poem.content.join('。')}`;
+            
+            const utterance = new SpeechSynthesisUtterance(textToRead);
+            utterance.lang = 'zh-TW';
+            utterance.rate = 0.85; // 稍慢，適合學童
+            utterance.pitch = 1.1; // 較高音調顯得親切
+
+            utterance.onstart = () => {
+                btnListen.classList.add('bg-blue-600', 'scale-95');
+                statusLabel.textContent = "🔊 老師示範中...";
+            };
+            utterance.onend = () => {
+                btnListen.classList.remove('bg-blue-600', 'scale-95');
+                statusLabel.textContent = "可以換你試試看囉！";
+            };
+
+            synth.speak(utterance);
+        });
+
+        btnRecord.addEventListener('mousedown', startRecording);
+        btnRecord.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); }, {passive: false});
+        
+        window.addEventListener('mouseup', stopRecording);
+        window.addEventListener('touchend', stopRecording);
+
+        async function startRecording() {
+            if (isRecording) return;
+            window.speechSynthesis.cancel();
+            if (recordedAudioElement) recordedAudioElement.pause();
+            scoreBoard.classList.add('hidden'); // 隱藏舊成績
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                // 設定流暢度與語音辨識變數
+                finalTranscript = "";
+                silenceFrames = 0;
+                longPauseCount = 0;
+                if(recognition) {
+                    try { recognition.start(); } catch(e){} // 避免重複啟動報錯
+                }
+
+                // 設定 Web Audio API 監測麥克風音量 (計算流暢度)
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                micSource = audioCtx.createMediaStreamSource(stream);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                micSource.connect(analyser);
+                monitorFluency(); // 啟動監測迴圈
+
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioUrl = URL.createObjectURL(audioBlob);
+                    recordedAudioElement.src = audioUrl;
+                    
+                    btnPlay.disabled = false;
+                    stream.getTracks().forEach(track => track.stop()); // 關閉麥克風
+                    
+                    if(recognition) recognition.stop();
+                    cancelAnimationFrame(animationId); // 停止監測
+                    
+                    // 延遲一小段時間讓辨識結果回傳，再計算分數
+                    statusLabel.textContent = "⏳ 評分計算中...";
+                    setTimeout(calculateScore, 800);
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                
+                btnRecord.classList.add('is-recording', 'bg-red-600');
+                btnRecord.textContent = "⏹️";
+                recordLabel.textContent = "放開以結束";
+                statusLabel.textContent = "🔴 錄音中，請大聲唸！";
+                statusLabel.className = "text-sm font-bold text-red-500";
+                drawBlankWaveform("錄音中...請朗讀詩詞");
+
+            } catch (err) {
+                console.error("無法存取麥克風", err);
+                alert("請允許網頁使用麥克風才能進行挑戰喔！");
+            }
+        }
+
+        function stopRecording() {
+            if (!isRecording || !mediaRecorder) return;
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            btnRecord.classList.remove('is-recording', 'bg-red-600');
+            btnRecord.textContent = "🎤";
+            recordLabel.textContent = "按住挑戰";
+        }
+
+        // 監測錄音時的停頓 (流暢度)
+        function monitorFluency() {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            function checkVolume() {
+                if(!isRecording) return;
+                animationId = requestAnimationFrame(checkVolume);
+                analyser.getByteFrequencyData(dataArray);
+                
+                // 計算平均音量
+                let sum = 0;
+                for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+                let average = sum / dataArray.length;
+
+                // 判斷靜音
+                if (average < SILENCE_THRESHOLD) {
+                    silenceFrames++;
+                    if (silenceFrames === PAUSE_FRAME_LIMIT) {
+                        longPauseCount++; // 記下一次嚴重停頓
+                    }
+                } else {
+                    silenceFrames = 0; // 有聲音則重置
+                }
+            }
+            checkVolume();
+        }
+
+        function calculateScore() {
+            const poem = poemsData[currentPoemIndex];
+            // 移除標點符號的目標純文字
+            const targetText = poem.content.join('').replace(/[，。、？！\s]/g, '');
+            
+            // 1. 計算正確性 (Accuracy)
+            let matchCount = 0;
+            let recognized = finalTranscript || "（未偵測到語音，請稍微唸大聲一點喔）";
+            
+            // 簡單比對法：計算辨識到的字元，有多少個出現在目標詩詞中
+            let unqiueTargetChars = [...new Set(targetText)];
+            unqiueTargetChars.forEach(char => {
+                if(recognized.includes(char)) matchCount++;
+            });
+            
+            // 針對學童寬容計分
+            let accuracyRatio = matchCount / unqiueTargetChars.length;
+            let accuracyScore = Math.min(100, Math.round(accuracyRatio * 100) + 15); // 給予底分鼓勵
+            if (!finalTranscript) accuracyScore = 0;
+
+            // 2. 計算流暢度 (Fluency)
+            // 每次嚴重停頓扣 8 分
+            let fluencyScore = Math.max(0, 100 - (longPauseCount * 8));
+            if (!finalTranscript) fluencyScore = 0; // 沒聲音就不給分
+
+            // 3. 總分與評語
+            let totalScore = Math.round((accuracyScore + fluencyScore) / 2);
+            let comment = "";
+            if (totalScore >= 90) comment = "🌟 完美無瑕！你是唐詩小神童！";
+            else if (totalScore >= 75) comment = "👍 非常流暢，發音也很標準喔！";
+            else if (totalScore >= 60) comment = "👏 唸得很棒，多練習幾次會更好！";
+            else comment = "💪 加油！跟著老師唸一次，再試一次吧！";
+
+            // 顯示結果到 UI
+            document.getElementById('score-accuracy').textContent = `${accuracyScore} 分`;
+            document.getElementById('score-fluency').textContent = `${fluencyScore} 分`;
+            document.getElementById('score-total').textContent = totalScore;
+            document.getElementById('score-comment').textContent = comment;
+            document.getElementById('recognized-text-display').textContent = recognized;
+            
+            statusLabel.textContent = "✅ 挑戰完成！聽聽看你的聲音吧";
+            statusLabel.className = "text-sm font-bold text-green-500 animate-pulse";
+            scoreBoard.classList.remove('hidden');
+        }
+
+        btnPlay.addEventListener('click', () => {
+            if (!audioUrl) return;
+            window.speechSynthesis.cancel();
+            
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            if (!playSource) {
+                playSource = audioCtx.createMediaElementSource(recordedAudioElement);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+                playSource.connect(analyser);
+                analyser.connect(audioCtx.destination);
+            }
+
+            recordedAudioElement.currentTime = 0;
+            recordedAudioElement.play();
+            
+            statusLabel.textContent = "▶️ 播放中，看看你的聲波！";
+            btnPlay.classList.add('bg-green-600', 'scale-95');
+
+            visualizePlayback();
+
+            recordedAudioElement.onended = () => {
+                cancelAnimationFrame(animationId);
+                btnPlay.classList.remove('bg-green-600', 'scale-95');
+                statusLabel.textContent = "✅ 播放完畢";
+                setTimeout(() => drawBlankWaveform("波形將顯示在此"), 500);
+            };
+        });
+
+        // 繪製動態波形圖
+        function visualizePlayback() {
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+
+            function draw() {
+                animationId = requestAnimationFrame(draw);
+                analyser.getByteTimeDomainData(dataArray);
+
+                canvasCtx.fillStyle = '#EFF6FF'; // 淺藍背景
+                canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+                canvasCtx.lineWidth = 4;
+                canvasCtx.strokeStyle = '#3B82F6'; // 亮藍色線條
+                canvasCtx.lineCap = 'round';
+                canvasCtx.beginPath();
+
+                const sliceWidth = canvas.width * 1.0 / bufferLength;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = v * canvas.height / 2;
+                    if (i === 0) canvasCtx.moveTo(x, y);
+                    else canvasCtx.lineTo(x, y);
+                    x += sliceWidth;
+                }
+                canvasCtx.lineTo(canvas.width, canvas.height / 2);
+                canvasCtx.stroke();
+            }
+            draw();
+        }
+
+        // 繪製空白畫布
+        function drawBlankWaveform(message = "波形將顯示在此") {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            
+            canvasCtx.fillStyle = '#EFF6FF';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            canvasCtx.lineWidth = 4;
+            canvasCtx.strokeStyle = '#BFDBFE'; // 很淡的藍色
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(0, canvas.height / 2);
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
+
+            if (message) {
+                canvasCtx.fillStyle = '#60A5FA';
+                canvasCtx.font = 'bold 16px "Noto Sans TC"';
+                canvasCtx.textAlign = 'center';
+                canvasCtx.fillText(message, canvas.width / 2, canvas.height / 2 + 5);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if (recordedAudioElement && !recordedAudioElement.paused) return;
+            drawBlankWaveform();
+        });
+
+        // 啟動應用程式
+        window.addEventListener('DOMContentLoaded', initUI);
+
+    </script>
+</body>
+</html>
